@@ -171,20 +171,20 @@ def case_study_generator_execution(user_id: int, case_study_id: int):
             else:
                 path_scenario = os.path.join(execution.exp_folder_complete_path, scenario)
                 generate_case_study(execution, path_scenario, times)
-            execution.executed = (execution.scenarios_to_study.index(scenario) + 1 / len(execution.scenarios_to_study)) * 100
+            execution.executed = ((execution.scenarios_to_study.index(scenario) + 1) / len(execution.scenarios_to_study)) * 100
             execution.save()
 
-        # Serializing json
-        json_object = json.dumps(times, indent=4)
-        # Writing to .json
-        
-        metadata_final_path = os.path.join(
-            execution.exp_folder_complete_path,
-            f"times-cs_{execution.case_study.id}-exec_{execution.id}-metainfo.json"
-            )
+            # Serializing json
+            json_object = json.dumps(times, indent=4)
+            # Writing to .json
+            
+            metadata_final_path = os.path.join(
+                path_scenario + "_results",
+                f"times-cs_{execution.case_study.id}-exec_{execution.id}-metainfo.json"
+                )
 
-        with open(metadata_final_path, "w") as outfile:
-            outfile.write(json_object)
+            with open(metadata_final_path, "w") as outfile:
+                outfile.write(json_object)
             
         print(f"Case study {execution.case_study.title} executed!!. Case study foldername: {execution.exp_foldername}.Metadata saved in: {metadata_final_path}")
         create_notification(User.objects.get(id=user_id), _(f"{execution.case_study.title} Execution Completed"), _("Case study executed successfully"), reverse("analyzer:execution_detail", kwargs={"execution_id": execution.id}), status=NotifStatus.SUCCESS.value)

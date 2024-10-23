@@ -501,6 +501,7 @@ def is_block(clip, thread=0.15):
     Check if a compo is block by checking if the inner side of its border is blank
     '''
     side = 4  # scan 4 lines inner forward each border
+    if map(lambda c: c<9, clip.shape): return False
     # top border - scan top down
     blank_count = 0
     for i in range(1, 5):

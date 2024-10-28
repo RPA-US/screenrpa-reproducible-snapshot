@@ -127,6 +127,8 @@ def update_previous_screenshots_in_splitted_events(fixation_points, j, key, init
       fixation_points[ui_log.iloc[j-k][special_colnames["Screenshot"]]]["fixation_points"][key]["#events"] += 1
     else:
       # Initialize gaze metrics
+      #La clave "intersectioned" indica que el punto de fijación intersecciona dos capturas de pantalla, que se corresponden con dos eventos diferentes.
+      # El intersectioned estara a True cuando haya un evento de gaze cuyo timestamp se encuentre entre el timestamp del ultimo evento (del UI Log) ocurrido en una captura y el timestamp del primer evento (ui log) de la siguiente captura
       fixation_points[ui_log.iloc[j-k][special_colnames["Screenshot"]]]["fixation_points"][key] = init
     fixation_points[ui_log.iloc[j-k][special_colnames["Screenshot"]]]["fixation_points"][key]["intersectioned"] = "True"
   

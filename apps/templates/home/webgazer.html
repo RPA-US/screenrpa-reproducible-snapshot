@@ -50,6 +50,9 @@
         var gaze_points = [];
         var gaze_properties = {};
         let isFirstExecution = true;
+        var ScreenX = screen.width;
+        var ScreenY = screen.height;
+
 
         // start recording
         function recordGaze() {
@@ -76,7 +79,7 @@
                 // var temp_image = new Image();
 
                 // temp_image.src= save_url;
-                gaze_points.push([coordX, coordY, timestamp,UTCdate]);
+                gaze_points.push([coordX, coordY, timestamp,UTCdate,ScreenX,ScreenY]);
 
             }).begin();
         }
@@ -99,7 +102,7 @@
             //Crear zip con .csv y .json
             const zip = new JSZip();
             //Crear csv
-            var csv = 'Gaze_X,Gaze_Y,Timestamp,UTCdate\n';
+            var csv = 'Gaze_X,Gaze_Y,Timestamp,UTCdate,Screen_X,Screen_Y\n';
             gaze_points.forEach(function (row) {
                 csv += row.join(',');
                 csv += "\n";

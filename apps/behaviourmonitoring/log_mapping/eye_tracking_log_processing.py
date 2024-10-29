@@ -45,6 +45,27 @@ def get_minimum_fixation_gazepoints(device_frequency, fixation_minimum_duration)
     
     return minimum_fixation_gazepoints
 
+def rescale_gaze_points(df, width, height):
+    df = df.copy()
+    #Reescalado de los gazepoints a la resolución configurada
+    df['Gaze_X'] = df['Gaze_X']*width / df['Screen_X']
+    df['Gaze_Y'] = df['Gaze_Y']*height / df['Screen_Y']
+    
+    # Asegurar que los valores de Gaze_X y Gaze_Y estén dentro de los límites
+    df['Gaze_X'] = df['Gaze_X'].apply(lambda x: width if x > width else (0 if x < 0 else round(x,2)))
+    df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: height if y > height else (0 if y < 0 else round(y,2)))
+    # if ( df['Gaze_X'] > width):
+    #     df['Gaze_X'] = width
+    # if ( df['Gaze_X'] < 0):
+    #     df['Gaze_X'] = 0
+    # if ( df['Gaze_Y'] > height):
+    #     df['Gaze_Y'] = height
+    # if ( df['Gaze_Y'] < 0):
+    #     df['Gaze_Y'] = 0
+    
+    df.head()
+    return df   
+
 
 ################# I-DT Algorithm #################
 

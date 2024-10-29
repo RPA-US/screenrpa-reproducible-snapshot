@@ -6,7 +6,7 @@ import datetime
 import pandas as pd
 import numpy as np
 from dateutil import tz
-from apps.behaviourmonitoring.log_mapping.eye_tracking_log_processing import add_saccade_index, get_distance_threshold_by_resolution, get_minimum_fixation_gazepoints, int_index, preprocess_gaze_log
+from apps.behaviourmonitoring.log_mapping.eye_tracking_log_processing import add_saccade_index, get_distance_threshold_by_resolution, get_minimum_fixation_gazepoints, int_index, preprocess_gaze_log, rescale_gaze_points
 from core.utils import read_ui_log_as_dataframe
 from core.settings import MONITORING_IMOTIONS_NEEDED_COLUMNS, INCH_PER_CENTIMETRES, FIXATION_MINIMUM_DURATION, DEVICE_FREQUENCY_WEBGAZER, DEVICE_FREQUENCY_TOBII
 from apps.analyzer.utils import convert_timestamps_and_clean_screenshot_name_in_csv, get_csv_log_start_datetime, get_mht_log_start_datetime
@@ -485,11 +485,12 @@ def monitoring(log_path, root_path, execution):
       minimum_fixation_gazepoints = get_minimum_fixation_gazepoints(DEVICE_FREQUENCY_WEBGAZER, FIXATION_MINIMUM_DURATION) #Capturing the minimum number of gazepoints to consider a fixation
 
       if eyetracking_log_filename and os.path.exists(os.path.join(root_path , eyetracking_log_filename)):
-          postprocessed_webgazer_log = read_ui_log_as_dataframe(os.path.join(root_path , eyetracking_log_filename))
+          preprocessed_webgazer_log = read_ui_log_as_dataframe(os.path.join(root_path , eyetracking_log_filename))
       else:
           logging.exception("behaviourmonitoring/monitoring/monitoring line:180.  Eyetracking  webgazer log  cannot be read: " + root_path + eyetracking_log_filename)
           raise Exception("Eyetracking log cannot be read: " + root_path + eyetracking_log_filename)
-      postprocessed_webgazer_fixations_log_build = preprocess_gaze_log(postprocessed_webgazer_log, "Gaze_X", "Gaze_Y",minimum_fixation_gazepoints,pixels_threshold_i_dt)# First Preprocesing of the WebGazer Log. In this Log, we get the fixations (Timestamps, duration, start,end, x,y, etc.)
+      rescaled_webgazer_log = rescale_gaze_points(preprocessed_webgazer_log, monitoring_screen_width, monitoring_screen_height)# Rescale the WebGazer Log to the screen resolution
+      postprocessed_webgazer_fixations_log_build = preprocess_gaze_log(rescaled_webgazer_log, "Gaze_X", "Gaze_Y",minimum_fixation_gazepoints,pixels_threshold_i_dt)# First Preprocesing of the WebGazer Log. In this Log, we get the fixations (Timestamps, duration, start,end, x,y, etc.)
       postprocessed_webgazer_fixations_saccade_log_build = add_saccade_index(postprocessed_webgazer_fixations_log_build)# Second Preprocesing of the WebGazer Log. In this Log, we get the saccades (Timestamps, duration, start,end, x,y, etc.)
       postprocessed_webgazer_fixations_saccade_index_log_build = int_index(postprocessed_webgazer_fixations_saccade_log_build)#Last Preprocesing of the WebGazer Log. In this Log, we get the index of the fixations and saccades to finally get the gazeanalysis Log (Idem to imotions log)
       postprocessed_webgazer_fixations_saccade_index_log_build.to_csv(os.path.join(root_path , "webgazer_gazedata_postprocessed.csv"))

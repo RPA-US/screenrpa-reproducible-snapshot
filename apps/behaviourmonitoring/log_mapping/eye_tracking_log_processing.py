@@ -1,3 +1,4 @@
+import random
 import pandas as pd
 import math
 import ctypes
@@ -47,23 +48,22 @@ def get_minimum_fixation_gazepoints(device_frequency, fixation_minimum_duration)
 
 def rescale_gaze_points(df, width, height):
     df = df.copy()
+    #Se establece esta pantalla ya que la aplicación en webgazer graba con esta resolución en Y
+    df["Screen_x"] = 737.60
     #Reescalado de los gazepoints a la resolución configurada
-    df['Gaze_X'] = df['Gaze_X']*width / df['Screen_X']
-    df['Gaze_Y'] = df['Gaze_Y']*height / df['Screen_Y']
+    df['Gaze_X'] = df['Gaze_X'] * width / df['Screen_X']
+    df['Gaze_Y'] = df['Gaze_Y'] * height / df['Screen_Y']
+    
+    #Recalibrado de los gazepoint segun la resolución de la pantalla
+    # if (width == 1920 and height == 1080):
+    #     df['Gaze_X'] = df['Gaze_X'].apply(lambda x: x+460)
+    #     df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: y+40)
     
     # Asegurar que los valores de Gaze_X y Gaze_Y estén dentro de los límites
-    df['Gaze_X'] = df['Gaze_X'].apply(lambda x: width if x > width else (0 if x < 0 else round(x,2)))
-    df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: height if y > height else (0 if y < 0 else round(y,2)))
-    # if ( df['Gaze_X'] > width):
-    #     df['Gaze_X'] = width
-    # if ( df['Gaze_X'] < 0):
-    #     df['Gaze_X'] = 0
-    # if ( df['Gaze_Y'] > height):
-    #     df['Gaze_Y'] = height
-    # if ( df['Gaze_Y'] < 0):
-    #     df['Gaze_Y'] = 0
-    
-    df.head()
+    df['Gaze_X'] = df['Gaze_X'].apply(lambda x: width if x > width  else (0) if x < 0 else round(x,2))
+    #// Add a control for ghost points that Webgazer does not capture due to not being able to have a full window display when recording other tasks, thus generating random points that may be over the Windows taskbar (approximately 50px) standard or the Chrome search bar + tab (approximately 110px) standard.
+    df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: random.uniform(height - 50, height) if y > height  else (random.uniform(0, 110) if y < 0 else round(y,2)))
+
     return df   
 
 

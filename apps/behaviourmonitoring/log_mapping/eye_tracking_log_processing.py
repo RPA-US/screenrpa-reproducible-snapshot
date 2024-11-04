@@ -48,15 +48,16 @@ def get_minimum_fixation_gazepoints(device_frequency, fixation_minimum_duration)
 
 def rescale_gaze_points(df, width, height):
     df = df.copy()
-    if not df["Screen_X"].iloc[0] == 1920 and not df["Screen_Y"].iloc[0] == 1080:
-        df["Screen_Y"] = 737.60 #Portatil MSI pora tests
+    if df["Screen_X"].iloc[0] != width or df["Screen_Y"].iloc[0] != height:
+        #df["Screen_Y"] = 737.60 #Portatil MSI pora tests
         #Reescalado de los gazepoints a la resolución configurada
         df['Gaze_X'] = df['Gaze_X'] * width / df['Screen_X']
         df['Gaze_Y'] = df['Gaze_Y'] * height / df['Screen_Y']
         # Asegurar que los valores de Gaze_X y Gaze_Y estén dentro de los límites
         df['Gaze_X'] = df['Gaze_X'].apply(lambda x: width if x > width  else ( 0 if x < 0 else round(x,2)))
-        #50 px de la taskbar de Windows y 110 px de la barra de búsqueda de Chrome
-        df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: height  if y+160 > height  else ( 0 if y+110 < 0 else (y+110 if y < 0 else (round(y,2)))))
+        #40 px de la taskbar de Windows y 87 px de la barra de búsqueda de Chrome
+        df['Gaze_Y'] = df['Gaze_Y'].apply(lambda y: height  if y+127 > height  else ( 0 if y+87 < 0 else (y+87 if y < 0 else ( y+127 if y+127 < height else (round(y+87,2))))))
+        
         
 
     return df   

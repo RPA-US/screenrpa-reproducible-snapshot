@@ -2,6 +2,7 @@ import pickle
 import re
 import math
 import numpy as np
+import pandas as pd
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from sklearn.metrics import accuracy_score
@@ -60,6 +61,9 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
     # Cross-validation: accurracy + f1 score
     accuracies = {}
     
+    min_representation = min(y.value_counts())
+    if min_representation < k_fold_cross_validation:
+        k_fold_cross_validation = min_representation
     skf = StratifiedKFold(n_splits=k_fold_cross_validation)
     # skf.get_n_splits(X, y)
 
@@ -71,7 +75,8 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
         y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
         
         if library == "chefboost":
-            current_iteration_model, acc = chef.fit(X_train_fold+X_test_fold, config, target_label)
+            df_train_fold = pd.concat([X_train_fold, y_train_fold], axis=1)
+            current_iteration_model, acc = chef.fit(df_train_fold, config, target_label)
         elif library == "sklearn":
             current_iteration_model = model.fit(X_train_fold, y_train_fold)
         else:
@@ -101,7 +106,7 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
     accuracies['recall'] = np.mean(metrics_recall)
     accuracies['f1_score'] = np.mean(metrics_f1)
     print("Stratified K-Fold:  accuracy={} f1_score={}".format(accuracies['accuracy'], accuracies['f1_score']))
-    return accuracies
+    return accuracies, current_iteration_model
 
 
 

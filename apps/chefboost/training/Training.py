@@ -208,7 +208,7 @@ def findGains(df, config):
 def createBranchWrapper(func, args):
 	return func(*args)
 
-def createBranch(config, current_class, subdataset, numericColumn, branch_index, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id = 0, main_process_id = None):
+def createBranch(config, current_class, subdataset, numericColumn, branch_index, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id = 0, main_process_id = None, text_file = "rules.log"):
 
 	custom_rules = []
 
@@ -230,7 +230,10 @@ def createBranch(config, current_class, subdataset, numericColumn, branch_index,
 	#---------------------------
 
 	if numericColumn == True:
-		compareTo = current_class #current class might be <=x or >x in this case
+		if not "nan" in current_class:
+			compareTo = current_class #current class might be <=x or >x in this case
+		else:
+			compareTo = '!= "nan"'
 	else:
 		compareTo = " == '"+str(current_class)+"'"
 
@@ -270,10 +273,14 @@ def createBranch(config, current_class, subdataset, numericColumn, branch_index,
 
 	check_rule = check_condition+" obj["+str(winner_index)+"]"+compareTo+":"
 
+	text_representation_rule = f"--- {winner_name} {compareTo}"
+
 	leaf_id = str(uuid.uuid1())
 
 	if enableParallelism != True:
 		functions.storeRule(file,(functions.formatRule(root),"",check_rule))
+		# Root min value is 1. In the .log file we want to start from 0
+		functions.storeRule(text_file,(functions.formatRule(root-1, resp="|", add='   |'), text_representation_rule))
 	else:
 		sample_rule = {}
 		sample_rule["current_level"] = root
@@ -301,9 +308,12 @@ def createBranch(config, current_class, subdataset, numericColumn, branch_index,
 
 		decision_rule = "return "+charForResp+str(final_decision)+charForResp
 
+		decision_rule_text = f"--- class: {final_decision}"
+
 		if enableParallelism != True:
 			#serial
 			functions.storeRule(file,(functions.formatRule(root+1),decision_rule))
+			functions.storeRule(text_file,(functions.formatRule(root, resp="|", add='   |'), decision_rule_text))
 		else:
 			#parallel
 			sample_rule = {}
@@ -339,7 +349,7 @@ def createBranch(config, current_class, subdataset, numericColumn, branch_index,
 
 	return custom_rules
 
-def buildDecisionTree(df, root, file, config, dataset_features, parent_level = 0, leaf_id = 0, parents = 'root', tree_id = 0, validation_df = None, main_process_id = None):
+def buildDecisionTree(df, root, file, config, dataset_features, parent_level = 0, leaf_id = 0, parents = 'root', tree_id = 0, validation_df = None, main_process_id = None, text_file = "outputs/rules/rules.log"):
 
 	models = []
 
@@ -357,7 +367,7 @@ def buildDecisionTree(df, root, file, config, dataset_features, parent_level = 0
 	enableAdaboost = config['enableAdaboost']
 
 	if root == 1:
-		if random_forest_enabled != True and enableGBM != True and enableAdaboost != True:
+		if not any([random_forest_enabled, enableGBM, enableAdaboost]):
 			raw_df = df.copy()
 
 	#--------------------------------------
@@ -417,21 +427,21 @@ def buildDecisionTree(df, root, file, config, dataset_features, parent_level = 0
 				functions.storeRule(file, (functions.formatRule(root), "", descriptor))
 
 			results = createBranch(config, current_class, subdataset, numericColumn, branch_index
-				, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id = tree_id, main_process_id = main_process_id)
+				, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id = tree_id, main_process_id = main_process_id, text_file = text_file)
 
 			decision_rules = decision_rules + results
 
 		else:
 			input_params.append((config, current_class, subdataset, numericColumn, branch_index
-				, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id, main_process_id))
+				, winner_name, winner_index, root, parents, file, dataset_features, num_of_instances, metric, tree_id, main_process_id, text_file))
 
 	#---------------------------
 	#add else condition in the decision tree
 
 	if df.Decision.dtypes == 'object': #classification
 		pivot = pd.DataFrame(subdataset.Decision.value_counts()).reset_index()
-		pivot = pivot.rename(columns = {"Decision": "Instances","index": "Decision"})
-		pivot = pivot.sort_values(by = ["Instances"], ascending = False).reset_index()
+		# pivot = pivot.rename(columns = {"Decision": "Instances","index": "Decision"})
+		# pivot = pivot.sort_values(by = ["Instances"], ascending = False).reset_index()
 
 		else_decision = "return '%s'" % (pivot.iloc[0].Decision)
 

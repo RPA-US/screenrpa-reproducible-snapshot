@@ -76,11 +76,21 @@ import pickle
 #     return accuracy_score, times
 
 
-def chefboost_decision_tree(df, param_path, configuration, target_label, k_fold_cross_validation):
+def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross_validation, configuration={
+    		'algorithms': ['CHAID'],
+    		'enableParallelism': False,
+    		'enableGBM': True,
+    		'epochs': 7,
+    		'learning_rate': 1,
+    		'enableRandomForest': True,
+    		'num_of_trees': 5,
+    		'enableAdaboost': True,
+    		'num_of_weak_classifier': 4
+    	}):
     """
     
     config = {
-    		'algorithm' (string): ID3, 'C4.5, CART, CHAID or Regression
+    		'algorithms' (string): ID3, 'C4.5, CART, CHAID or Regression
     		'enableParallelism' (boolean): False
     		'enableGBM' (boolean): True,
     		'epochs' (int): 7,
@@ -99,9 +109,10 @@ def chefboost_decision_tree(df, param_path, configuration, target_label, k_fold_
     for alg in list(algorithms):
         df_aux = df.copy()
         df.rename(columns = {target_label:'Decision'}, inplace = True)
+        target_label = 'Decision'
+        df.drop(columns=["dp_branch"], inplace=True, errors="ignore")
         df['Decision'] = df['Decision'].astype(str) # which will by default set the length to the max len it encounters
-        enableParallelism = False
-        config = {'algorithm': alg, 'enableParallelism': enableParallelism }# 'num_cores': 2, 
+        config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"] }# 'num_cores': 2, 
         if SEVERAL_ITERATIONS:
             durations = []
             for i in range(0, int(SEVERAL_ITERATIONS)):
@@ -119,19 +130,21 @@ def chefboost_decision_tree(df, param_path, configuration, target_label, k_fold_
         # Saving model
         # chef.save_model(model, alg+'model.pkl')
 
-        X = df_aux.drop(columns=[target_label])
-        y = df_aux[target_label]
-        accuracies[alg] = cross_validation(X, y, config, target_label, "chefboost", None, k_fold_cross_validation)
+        X = df.drop(columns=[target_label])
+        y = df[target_label]
+        accuracies[alg], model = cross_validation(X, y, config, target_label, "chefboost", None, k_fold_cross_validation)
         
         # => Feature importance
         fi = chef.feature_importance('outputs/rules/rules.py').set_index("feature")
-        fi.to_csv(param_path+alg+"-tree-feature-importance.csv")
+        fi.to_csv(os.path.join(param_path, alg+"-tree-feature-importance.csv"))
+        log_name = f"decision_tree_{prev_act}.log"
+        shutil.move('outputs/rules/rules.log', os.path.join(param_path, log_name))
         # TODO: Graphical representation of feature importance
         # fi.plot(kind="barh", title="Feature Importance")
 
         # shutil.move('outputs/rules/rules.py', param_path+alg+'-rules.py')
-        if enableParallelism:
-            shutil.move('outputs/rules/rules.json', param_path+alg+'-rules.json')
+        if configuration["enableParallelism"]:
+            shutil.move('outputs/rules/rules.json', os.path.join(param_path, alg+'-rules.json'))
 
 
         print(param_path)

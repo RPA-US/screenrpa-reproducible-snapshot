@@ -78,7 +78,7 @@ def evaluate(df, task = 'train'):
 				print(_("Accuracy: "), accuracy,"%, ", end = '')
 				# print("tp:"+str(tp)+", tn:"+str(tn)+", fp:"+str(fp)+", fn:"+str(fn))
 			
-			print(_("Precision: %(precision)\%, Recall: %(recall)\%, F1: %(f1_score)\%") % {'precision': precision, 'recall': recall, 'f1_score': f1_score})
+			print(_(f"Precision: {precision}, Recall: {recall}, F1: {f1_score}"))
 			#print("TP: ",tp,", TN: ",tn,", FP: ", fp,", FN: ",fn)
 			
 			if len(labels) < 3:

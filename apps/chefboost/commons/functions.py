@@ -34,11 +34,9 @@ def sign(x):
 	else:
 		return 0
 
-def formatRule(root):
-	resp = ''
-
+def formatRule(root, resp = '', add = '   '):
 	for i in range(0, root):
-		resp = resp + '   '
+		resp = resp + add
 
 	return resp
 
@@ -62,7 +60,7 @@ def initializeFolders():
 
 	#clear existing rules in outputs/
 
-	outputs_path = os.getcwd()+os.path.sep+"outputs"+os.path.sep
+	outputs_path = os.path.join(os.getcwd(), "..", "outputs")
 
 	try:
 		if path.exists(outputs_path+"data"):

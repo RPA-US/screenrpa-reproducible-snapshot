@@ -214,7 +214,7 @@ def decision_tree_training(log_path, scenario_path, execution):
                 print("Error: ", e)
                 continue
         elif implementation == 'chefboost':
-            res, times = chefboost_decision_tree(flattened_dataset, scenario_path+"_results", algorithms, "Variant", k_fold_cross_validation)
+            res, times = chefboost_decision_tree(flattened_dataset, act, scenario_path+"_results", "Variant", k_fold_cross_validation)
             # TODO: caculate number of tree levels automatically
             # for alg in algorithms:
                 # rules_info = open(path+alg+'-rules.json')

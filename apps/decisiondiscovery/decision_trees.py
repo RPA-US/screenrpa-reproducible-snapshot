@@ -110,7 +110,6 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
         df_aux = df.copy()
         df.rename(columns = {target_label:'Decision'}, inplace = True)
         target_label = 'Decision'
-        df.drop(columns=["dp_branch"], inplace=True, errors="ignore")
         df['Decision'] = df['Decision'].astype(str) # which will by default set the length to the max len it encounters
         config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"] }# 'num_cores': 2, 
         if SEVERAL_ITERATIONS:

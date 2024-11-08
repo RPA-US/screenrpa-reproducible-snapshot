@@ -364,19 +364,19 @@ def centroid_distance_checker(punto_x, punto_y, umbral):
 
 def read_feature_column_name(column_name):
     # Patrón para los nombres de columna que contienen centroid
-    pattern_with_centroid = r"([a-zA-Z_]+)__([a-zA-Z0-9_-]+)_(\d+\.?\d*?-\d+\.?\d*?)_(\d+)(_?)([_0-9a-zA-Z]+)"
+    pattern_with_centroid = r"([a-zA-Z0-9_]+__)?([a-zA-Z0-9_-]+)_(\d+\.?\d*?-\d+\.?\d*?)_(\d+)(_?)([_0-9a-zA-Z]+)"
     # Patrón para los nombres de columna que no contienen centroid
-    pattern_without_centroid = r"([a-zA-Z_]+)__([a-zA-Z0-9_]+)_(\d+)(_?[a-zA-Z]?)"
+    pattern_without_centroid = r"([a-zA-Z0-9_]+__)?([a-zA-Z0-9_]+)_(\d+)(_?[a-zA-Z]?)"
     # Patrón adicional para nombres de columna sin prefijo
     pattern_no_prefix = r"([a-zA-Z0-9_]+)_(\d+\.\d+-\d+\.\d+)_(\d+)(_?[a-zA-Z]?)"
     # Patroón para puntos de decisión
     # one_hot_categorical__idc2257948-fb8b-4a60-8ea6-1fdce0c602a1_*
-    pattern_decision_point = r"([a-zA-Z_]+)__([a-zA-Z0-9-]+)_([a-zA-Z]+)?_?([_a-zA-Z0-9-]+)"
+    pattern_decision_point = r"([a-za-z_]+__)?([a-zA-Z0-9-]+)_([a-zA-Z]+)?_?([_a-zA-Z0-9-]+)"
     
     # Intentamos encontrar coincidencias con los patrones definidos
     coincidences = re.match(pattern_with_centroid, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = [float(coord) for coord in coincidences.group(3).split("-")]
         activity = coincidences.group(4)
@@ -384,7 +384,7 @@ def read_feature_column_name(column_name):
 
     coincidences = re.match(pattern_without_centroid, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = None
         activity = coincidences.group(3)
@@ -404,7 +404,7 @@ def read_feature_column_name(column_name):
 
     coincidences = re.match(pattern_decision_point, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = None
         activity = coincidences.group(4) # Actividad o numero de puerta xor

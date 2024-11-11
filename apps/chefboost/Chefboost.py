@@ -129,7 +129,7 @@ def fit(df, config = {}, target_label = 'Decision', validation_df = None):
 	#------------------------
 
 	if enableParallelism == True:
-		print(_("[INFO]: &(cores) CPU cores will be allocated in parallel running") % {'cores': config["num_cores"]})
+		print(_(f"[INFO]: {config['num_cores']} CPU cores will be allocated in parallel running"))
 
 		from multiprocessing import set_start_method, freeze_support
 		set_start_method("spawn", force=True)
@@ -166,7 +166,7 @@ def fit(df, config = {}, target_label = 'Decision', validation_df = None):
 
 	#-------------------------
 
-	print(_("%(algorithm) tree is going to be built...") % {'algorithm': algorithm})
+	print(_(f"{algorithm} tree is going to be built..."))
 
 	dataset_features = dict() #initialize a dictionary. this is going to be used to check features numeric or nominal. numeric features should be transformed to nominal values based on scales.
 
@@ -188,10 +188,10 @@ def fit(df, config = {}, target_label = 'Decision', validation_df = None):
 
 	trees = []; alphas = []
 
-	if enableAdaboost == True:
+	if enableAdaboost:
 		trees, alphas = adaboost.apply(df, config, header, dataset_features, validation_df = validation_df, process_id = process_id)
 
-	elif enableGBM == True:
+	elif enableGBM:
 
 		if df['Decision'].dtypes == 'object': #transform classification problem to regression
 			trees, alphas = gbm.classifier(df, config, header, dataset_features, validation_df = validation_df, process_id = process_id)
@@ -201,14 +201,16 @@ def fit(df, config = {}, target_label = 'Decision', validation_df = None):
 			trees = gbm.regressor(df, config, header, dataset_features, validation_df = validation_df, process_id = process_id)
 			classification = False
 
-	elif enableRandomForest == True:
+	elif enableRandomForest:
 		trees = randomforest.apply(df, config, header, dataset_features, validation_df = validation_df, process_id = process_id)
 	else: #regular decision tree building
 
 		root = 1; file = "outputs/rules/rules.py"
+		text_file = "outputs/rules/rules.log"
 		functions.createFile(file, header)
+		functions.createFile(text_file, "")
 
-		if enableParallelism == True:
+		if enableParallelism:
 			json_file = "outputs/rules/rules.json"
 			functions.createFile(json_file, "[\n")
 

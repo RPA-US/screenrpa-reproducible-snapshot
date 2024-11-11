@@ -2,6 +2,7 @@ import pickle
 import re
 import math
 import numpy as np
+import pandas as pd
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from sklearn.metrics import accuracy_score
@@ -60,6 +61,9 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
     # Cross-validation: accurracy + f1 score
     accuracies = {}
     
+    min_representation = min(y.value_counts())
+    if min_representation < k_fold_cross_validation:
+        k_fold_cross_validation = min_representation
     skf = StratifiedKFold(n_splits=k_fold_cross_validation)
     # skf.get_n_splits(X, y)
 
@@ -71,7 +75,8 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
         y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
         
         if library == "chefboost":
-            current_iteration_model, acc = chef.fit(X_train_fold+X_test_fold, config, target_label)
+            df_train_fold = pd.concat([X_train_fold, y_train_fold], axis=1)
+            current_iteration_model, acc = chef.fit(df_train_fold, config, target_label)
         elif library == "sklearn":
             current_iteration_model = model.fit(X_train_fold, y_train_fold)
         else:
@@ -101,7 +106,7 @@ def cross_validation(X, y, config, target_label, library, model, k_fold_cross_va
     accuracies['recall'] = np.mean(metrics_recall)
     accuracies['f1_score'] = np.mean(metrics_f1)
     print("Stratified K-Fold:  accuracy={} f1_score={}".format(accuracies['accuracy'], accuracies['f1_score']))
-    return accuracies
+    return accuracies, current_iteration_model
 
 
 
@@ -359,19 +364,19 @@ def centroid_distance_checker(punto_x, punto_y, umbral):
 
 def read_feature_column_name(column_name):
     # Patrón para los nombres de columna que contienen centroid
-    pattern_with_centroid = r"([a-zA-Z_]+)__([a-zA-Z0-9_-]+)_(\d+\.?\d*?-\d+\.?\d*?)_(\d+)(_?)([_0-9a-zA-Z]+)"
+    pattern_with_centroid = r"([a-zA-Z0-9_]+__)?([a-zA-Z0-9_-]+)_(\d+\.?\d*?-\d+\.?\d*?)_(\d+)(_?)([_0-9a-zA-Z]+)"
     # Patrón para los nombres de columna que no contienen centroid
-    pattern_without_centroid = r"([a-zA-Z_]+)__([a-zA-Z0-9_]+)_(\d+)(_?[a-zA-Z]?)"
+    pattern_without_centroid = r"([a-zA-Z0-9_]+__)?([a-zA-Z0-9_]+)_(\d+)(_?[a-zA-Z]?)"
     # Patrón adicional para nombres de columna sin prefijo
     pattern_no_prefix = r"([a-zA-Z0-9_]+)_(\d+\.\d+-\d+\.\d+)_(\d+)(_?[a-zA-Z]?)"
     # Patroón para puntos de decisión
     # one_hot_categorical__idc2257948-fb8b-4a60-8ea6-1fdce0c602a1_*
-    pattern_decision_point = r"([a-zA-Z_]+)__([a-zA-Z0-9-]+)_([a-zA-Z]+)?_?([_a-zA-Z0-9-]+)"
+    pattern_decision_point = r"([a-za-z_]+__)?([a-zA-Z0-9-]+)_([a-zA-Z]+)?_?([_a-zA-Z0-9-]+)"
     
     # Intentamos encontrar coincidencias con los patrones definidos
     coincidences = re.match(pattern_with_centroid, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = [float(coord) for coord in coincidences.group(3).split("-")]
         activity = coincidences.group(4)
@@ -379,7 +384,7 @@ def read_feature_column_name(column_name):
 
     coincidences = re.match(pattern_without_centroid, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = None
         activity = coincidences.group(3)
@@ -399,7 +404,7 @@ def read_feature_column_name(column_name):
 
     coincidences = re.match(pattern_decision_point, column_name)
     if coincidences:
-        suffix = coincidences.group(1)
+        suffix = coincidences.group(1) if coincidences.group(1) else None
         feature = coincidences.group(2)
         centroid = None
         activity = coincidences.group(4) # Actividad o numero de puerta xor

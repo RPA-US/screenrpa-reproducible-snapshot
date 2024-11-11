@@ -9,7 +9,7 @@ from scipy.spatial.distance import pdist
 INCH_PER_CENTIMETRES = 2.54 #1 inch =  2.54cm
 
 ################# Constans to introduce by the user #################
-SCREEN_INCHES = 15.6 #Screen Inches
+SCREEN_INCHES = 21.5 #Screen Inches
 OBSERVER_CAMERA_DISTANCE = 50 #cm 
 
 ################# Auxiliars Functions #################

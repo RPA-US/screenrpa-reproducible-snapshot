@@ -220,11 +220,19 @@ def parse_decision_tree(file_path):
         lines = file.readlines()
 
     def parse_node(node_str, depth):
-        match = re.match(r'\|   ' * (get_node_depth(node_str) - 1) + r'\|--- (.+) (<=|>=|>|<)\s+([0-9.-]+)', node_str)
+        # Numeric condition
+        match = re.match(r'\|   ' * (get_node_depth(node_str) - 1) + r'\|--- *(.+) *(<=|>=|>|<)\s+([0-9.-]*)', node_str)
         if match:
             feature, operator, threshold = match.groups()
-            return [feature, operator, float(threshold)]
+            return [feature.strip(), operator.strip(), float(threshold.strip())]
+        
+        # String condition
+        match = re.match(r'\|   ' * (get_node_depth(node_str) - 1) + r'\|--- *(.+) *(==|!=)\s+([0-9a-zA-Z.-]*)', node_str)
+        if match:
+            feature, operator, threshold = match.groups()
+            return [feature.strip(), operator.strip(), threshold]
 
+        # Branch resolve
         match = re.match(r'\|   ' * (get_node_depth(node_str) - 1) + r'\|--- class: (.+)', node_str)
         if match:
             class_value = match.group(1)

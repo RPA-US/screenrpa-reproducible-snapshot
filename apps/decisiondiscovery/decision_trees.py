@@ -111,12 +111,18 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
         df.rename(columns = {target_label:'Decision'}, inplace = True)
         target_label = 'Decision'
         df['Decision'] = df['Decision'].astype(str) # which will by default set the length to the max len it encounters
-        config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"] }# 'num_cores': 2, 
+        config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"] }# 'num_cores': 2,
+        # Handle nan columns on int and str columns
+        for column in df.columns:
+            if df[column].dtype == 'int64':
+                df[column] = df[column].fillna(0)
+            if df[column].dtype == 'object':
+                df[column] = df[column].fillna("")
         if SEVERAL_ITERATIONS:
             durations = []
             for i in range(0, int(SEVERAL_ITERATIONS)):
                 start_t = time.time()
-                model = chef.fit(df, config = config, target_label = "Decision")
+                model = chef.fit(df.copy(), config = config, target_label = "Decision")
                 durations.append(float(time.time()) - float(start_t))
             durations_total = 0
             for d in durations:
@@ -132,6 +138,7 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
         X = df.drop(columns=[target_label])
         y = df[target_label]
         accuracies[alg], model = cross_validation(X, y, config, target_label, "chefboost", None, k_fold_cross_validation)
+        model["accuracies"] = accuracies[alg]
         
         # => Feature importance
         fi = chef.feature_importance('outputs/rules/rules.py').set_index("feature")
@@ -299,6 +306,7 @@ def sklearn_decision_tree(df,prevact, param_path, special_colnames, configuratio
         'classifier': tree_classifier,
         'feature_names': feature_names,
         'class_names': np.unique(y),
+        'accuracies': accuracies,
     }
     with open(os.path.join(param_path, 'decision_tree_'+prevact+'.pkl'), 'wb') as fid:
         pickle.dump(saved_data, fid)

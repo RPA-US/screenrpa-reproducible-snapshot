@@ -117,6 +117,8 @@ def extract_training_dataset(log_path, root_path, execution):
                         special_colnames["Variant"],
                         special_colnames["Timestamp"], 
                         special_colnames["Screenshot"],
+                        special_colnames["NameApp"],
+                        special_colnames["EventType"],
                         "combined_features", # Feature vector of the screenshot
                         "case:concept:name", # Case ID Duplicated in Process Discovery
                         "concept:name", # Activity ID Duplicated in Process Discovery

@@ -85,7 +85,8 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
     		'enableRandomForest': True,
     		'num_of_trees': 5,
     		'enableAdaboost': True,
-    		'num_of_weak_classifier': 4
+    		'num_of_weak_classifier': 4,
+            'max_depth': 5
     	}):
     """
     
@@ -98,7 +99,8 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
     		'enableRandomForest' (boolean): True,
     		'num_of_trees' (int): 5,
     		'enableAdaboost' (boolean): True,
-    		'num_of_weak_classifier' (int): 4
+    		'num_of_weak_classifier' (int): 4,
+            'max_depth': (int) 5
     	}
     """
     times = {}
@@ -111,7 +113,7 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
         df.rename(columns = {target_label:'Decision'}, inplace = True)
         target_label = 'Decision'
         df['Decision'] = df['Decision'].astype(str) # which will by default set the length to the max len it encounters
-        config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"] }# 'num_cores': 2,
+        config = {'algorithm': alg, 'enableParallelism': configuration["enableParallelism"], 'max_depth': configuration["max_depth"]}# 'num_cores': 2,
         # Handle nan columns on int and str columns
         for column in df.columns:
             if df[column].dtype == 'int64':
@@ -152,11 +154,63 @@ def chefboost_decision_tree(df, prev_act, param_path, target_label, k_fold_cross
         if configuration["enableParallelism"]:
             shutil.move('outputs/rules/rules.json', os.path.join(param_path, alg+'-rules.json'))
 
+        features = list(fi.loc[fi["importance"] > 0].index)
+        target_labels = list(df[target_label].unique())
+
+        traceability_path= (os.path.join(param_path, 'traceability.json'))
+        with open(traceability_path, 'r') as f:
+            json_data = json.load(f)
+            process = Process.from_json(json_data)
+
+        if all(i is not None for i in [features, target_labels]):
+            process = update_traceability_chefboost(process, features, target_labels, os.path.join(param_path, log_name))
+            with open(traceability_path, 'w') as f:
+                json.dump(process.to_json(), f, indent=2)
 
         print(param_path)
         
     return accuracies, times
 
+def update_traceability_chefboost(process: Process, features, target_labels, log_path):
+    """
+    Converts the log in format:
+    |--- feature1
+    |   |--- feature2
+    |   |   |--- feature3
+    |   |   |   |--- class: target1
+    |   |   |--- feature4
+    |   |   |   |--- class: target2
+
+    to the rules in the traceability JSON
+    """
+    # TODO: Handle multiple instances of the same target
+    def get_conditions(target_depth):
+        index = features_depth.index(target_depth)
+        class_depth = target_depth[1]
+        conditions = {}
+        for i in range(index - 1, -1, -1):
+            item, depth = features_depth[i]
+            if depth < class_depth and depth not in conditions:
+                conditions[depth] = (item, depth)
+        return [conditions[depth] for depth in sorted(conditions)]
+
+    log = open(log_path, "r").readlines()
+    # Converts to format [("feature1", depth) ...]
+    features_depth = list(map(lambda l: (l.replace("|   ", "").replace("|---", "").strip(), int(l.find("|---")/4)), log))
+
+    for decision_point in process.get_non_empty_dp_flattened():
+        if all(target in
+            list(map(lambda r: r.target, decision_point.rules))
+            for target in target_labels):
+            for target in target_labels:
+                class_str = f"class: {target}"
+                target_depth = next(filter(lambda f: f[0] == class_str, features_depth).__iter__(), None)
+                if target_depth is not None:
+                    # Now we find the closest "to the left" items per inferior depth level
+                    conditions = get_conditions(target_depth)
+
+    
+    return process
 
 # Ref. https://gist.github.com/j-adamczyk/dc82f7b54d49f81cb48ac87329dba95e#file-graphviz_disk_op-py
 def plot_decision_tree(path: str,

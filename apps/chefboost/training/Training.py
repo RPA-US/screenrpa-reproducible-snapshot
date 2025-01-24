@@ -699,7 +699,11 @@ def buildDecisionTree(
 
         # is regular decision tree
         if not any(
-            config["enableRandomForest"], config["enableGBM"], config["enableAdaboost"]
+            [
+                config["enableRandomForest"],
+                config["enableGBM"],
+                config["enableAdaboost"],
+            ]
         ):
             # this is reguler decision tree. find accuracy here.
 

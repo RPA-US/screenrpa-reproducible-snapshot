@@ -254,6 +254,18 @@ def decision_tree_training(log_path, scenario_path, execution):
         flattened_dataset = flattened_dataset.drop(
             columns_to_ignore, axis=1, errors="ignore"
         )
+
+        # Drop all columns with 0 variability
+        flattened_dataset.drop(
+            columns=list(
+                filter(
+                    lambda c: len(flattened_dataset[c].unique()) == 1,
+                    flattened_dataset.columns,
+                )
+            ),
+            inplace=True,
+        )
+
         # flattened_dataset.to_csv(os.path.join(scenario_path+"_results",FLATTENED_DATASET_NAME+".csv"))
         columns_len = flattened_dataset.shape[1]
         # flattened_dataset = flattened_dataset.fillna('NaN')

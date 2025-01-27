@@ -87,6 +87,11 @@ def cross_validation(
     skf = StratifiedKFold(n_splits=k_fold_cross_validation)
     # skf.get_n_splits(X, y)
 
+    metrics_acc = []
+    metrics_precision = []
+    metrics_recall = []
+    metrics_f1 = []
+
     for i, (train_index, test_index) in enumerate(skf.split(X, y)):
         print("Fold {}:".format(i))
         print("Train: index={}".format(train_index))
@@ -101,11 +106,6 @@ def cross_validation(
             current_iteration_model = model.fit(X_train_fold, y_train_fold)
         else:
             raise Exception("Decision Model Option Not Valid")
-
-        metrics_acc = []
-        metrics_precision = []
-        metrics_recall = []
-        metrics_f1 = []
 
         if library == "chefboost":
             y_pred = []

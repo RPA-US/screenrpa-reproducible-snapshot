@@ -569,7 +569,9 @@ def find_path_in_decision_tree(
                     if feature == or_cond_feature_name and centroid_distance_checker(
                         centroid, or_cond_feature_centroid, centroid_threshold
                     ):
-                        feature_value = feature_values[cond_feature][or_cond_feature]
+                        feature_value_comp = feature_values[cond_feature][
+                            or_cond_feature
+                        ]  # Example [">= 6", "> 5"]
                         aux_feature_values[or_cond_feature] = (
                             aux_feature_values[or_cond_feature] + 1
                             if or_cond_feature in aux_feature_values
@@ -587,7 +589,7 @@ def find_path_in_decision_tree(
                 if feature == cond_feature_name and centroid_distance_checker(
                     centroid, cond_feature_centroid, centroid_threshold
                 ):
-                    feature_value = feature_values[cond_feature]
+                    feature_value_comp = feature_values[cond_feature]
                     aux_feature_values[or_cond_feature] = (
                         aux_feature_values[or_cond_feature] + 1
                         if or_cond_feature in aux_feature_values
@@ -599,8 +601,7 @@ def find_path_in_decision_tree(
         if not exists_schema:
             return False
 
-        # return eval(str(feature_value) + " " + operator + " " + str(threshold))
-        return True
+        return f"{operator} {threshold}" in feature_value_comp
 
     for conditions in paths:
         is_compliant = all(check_condition(condition) for condition in conditions)

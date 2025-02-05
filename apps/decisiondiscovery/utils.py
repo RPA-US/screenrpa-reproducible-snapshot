@@ -327,12 +327,12 @@ def points_distance(punto_x, punto_y):
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 
-def centroid_distance_checker(punto_x, punto_y, umbral):
+def centroid_distance_checker(punto_x, punto_y, umbral):  # -> Literal[True]:
     if not punto_x and not punto_y:
         return True
     else:
         distancia = points_distance(punto_x, punto_y)
-        return distancia < umbral
+        return distancia <= umbral
 
 
 # def read_feature_column_name(column_name):

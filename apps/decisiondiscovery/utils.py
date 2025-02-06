@@ -601,6 +601,12 @@ def find_path_in_decision_tree(
         if not exists_schema:
             return False
 
+        if type(feature_value_comp) is not list:
+            print(
+                f"Feature value comparisons should be a list in the format ['>= %d', '> %d'], got {feature_value_comp}"
+            )
+            print("Falling to feature_value, operator, threshold comparison")
+            return eval(f"{feature_value_comp} {operator} {threshold}")
         return f"{operator} {threshold}" in feature_value_comp
 
     for conditions in paths:

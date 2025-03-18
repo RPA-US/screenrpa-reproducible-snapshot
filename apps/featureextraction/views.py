@@ -2,12 +2,16 @@ import csv
 import json
 import os
 import random
+import polars as pl
 from art import tprint
+from django.db.models.base import Model as Model
+from django.db.models.query import QuerySet
+from django.forms import BaseModelForm
 from core.settings import sep, PLATFORM_NAME, CLASSIFICATION_PHASE_NAME, SINGLE_FEATURE_EXTRACTION_PHASE_NAME, AGGREGATE_FEATURE_EXTRACTION_PHASE_NAME
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect, HttpResponse
-from django.views.generic import ListView, DetailView, CreateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, View
 from apps.utils import MultiFormsView
 from django.core.exceptions import ValidationError, PermissionDenied
 from apps.analyzer.models import CaseStudy
@@ -15,8 +19,7 @@ from apps.featureextraction.SOM.classification import legacy_ui_elements_classif
 from .models import UIElementsClassification, UIElementsDetection, Prefilters, Postfilters, FeatureExtractionTechnique, Postprocessing
 from .forms import UIElementsClassificationForm, UIElementsDetectionForm, PrefiltersForm, PostfiltersForm, FeatureExtractionTechniqueForm, PostprocessingForm
 from .relevantinfoselection.postfilters import draw_postfilter_relevant_ui_compos_borders
-from .utils import detect_single_fe_function, detect_agg_fe_function, detect_postprocessing_function
-from .utils import draw_ui_compos_borders
+from .utils import detect_single_fe_function, detect_agg_fe_function, detect_postprocessing_function, read_ui_log_as_dataframe, draw_ui_compos_borders
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from rest_framework import status
@@ -160,9 +163,26 @@ class FeatureExtractionTechniqueListView(LoginRequiredMixin, ListView):
 
         return queryset
 
-class FeatureExtractionTechniqueDetailView(LoginRequiredMixin, DetailView):
+class FeatureExtractionTechniqueDetailView(LoginRequiredMixin, UpdateView):
     login_url = "/login/"
+    model = FeatureExtractionTechnique
+    form_class = FeatureExtractionTechniqueForm
+    success_url = "/feature-extraction-technique/list/"
+    template_name = "fe/feature-extraction-technique/detail.html"
     # Check if the the phase can be interacted with (included in case study available phases)
+
+    def get_object(self, queryset = ...) -> Model:
+        return get_object_or_404(FeatureExtractionTechnique, id=self.kwargs["feature_extraction_technique_id"])
+    
+    def form_valid(self, form):
+        if not self.request.user.is_authenticated:
+            raise ValidationError("User must be authenticated.")
+        if self.object.freeze:
+            raise ValidationError("This object cannot be edited.")
+        if not self.object.case_study.user == self.request.user:
+            raise PermissionDenied("This object doesn't belong to the authenticated")
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url() + str(self.object.case_study.id))
  
     def get(self, request, *args, **kwargs):
         feature_extraction = get_object_or_404(FeatureExtractionTechnique, id=kwargs["feature_extraction_technique_id"])
@@ -171,13 +191,24 @@ class FeatureExtractionTechniqueDetailView(LoginRequiredMixin, DetailView):
         elif feature_extraction.case_study.user != request.user:
             raise PermissionDenied("FE doesn't belong to the authenticated user.")
 
-        form = FeatureExtractionTechniqueForm(read_only=True, instance=feature_extraction)
+        form = FeatureExtractionTechniqueForm(read_only=feature_extraction.freeze, instance=feature_extraction)
+        
+        context = {}
+        # Load single and aggregate techniques from configurations
+        single_json = json.load(open("configuration/single_feature_extractors.json"))
+        aggregate_json = json.load(open("configuration/aggregate_feature_extractors.json"))
+        context["options"] = {
+            # We convert the tuples returned by the items() method to lists so that javascript can correctly parse them
+            "single": list(map(lambda x: list(x), single_json.items())),
+            "aggregate": list(map(lambda x: list(x), aggregate_json.items()))
+        }
         if 'case_study_id' in kwargs:
             case_study = get_object_or_404(CaseStudy, id=kwargs['case_study_id'])
             if 'FeatureExtractionTechnique' in case_study.available_phases:
-                context= {"feature_extraction_technique": feature_extraction, 
+                context = context | {"feature_extraction_technique": feature_extraction, 
                     "case_study_id": case_study.id,
-                    "form": form,}
+                    "form": form
+                }
         
                 return render(request, "feature_extraction_technique/detail.html", context)
             else:
@@ -186,9 +217,10 @@ class FeatureExtractionTechniqueDetailView(LoginRequiredMixin, DetailView):
         elif 'execution_id' in kwargs:
             execution = get_object_or_404(Execution, id=kwargs['execution_id'])
             if execution.feature_extraction_technique:
-                context= {"feature_extraction_technique": feature_extraction, 
+                context = context | {"feature_extraction_technique": feature_extraction, 
                             "execution_id": execution.id,
-                            "form": form,}
+                            "form": form
+                }
             
                 return render(request, "feature_extraction_technique/detail.html", context)
             else:
@@ -266,7 +298,8 @@ class FeatureExtractionResultDetailView(LoginRequiredMixin, DetailView):
             return ResultDownload(path_to_csv_file)  
      
         # CSV Reading and Conversion to JSON
-        csv_data_json = read_csv_to_json(path_to_csv_file)
+        # Size is reduced to 100rowsx100cols for throughput
+        csv_data_json = read_ui_log_as_dataframe(path_to_csv_file, nrows=10, ncols=100, lib='polars').to_dicts()
 
         # Include CSV data in the context for the template
         context = {
@@ -371,9 +404,25 @@ class PostprocessingListView(LoginRequiredMixin, ListView):
 
         return queryset
 
-class PostprocessingDetailView(LoginRequiredMixin, DetailView):
+class PostprocessingDetailView(LoginRequiredMixin, UpdateView):
     login_url = "/login/"
-    # Check if the the phase can be interacted with (included in case study available phases)
+    model = Postprocessing
+    form_class = PostprocessingForm
+    success_url = "/fe/postprocessing/list/"
+    template_name = "postprocessing/detail.html"
+
+    def get_object(self, queryset = ...) -> Model:
+        return get_object_or_404(Postprocessing, id=self.kwargs["postprocessing_id"])
+    
+    def form_valid(self, form):
+        if not self.request.user.is_authenticated:
+            raise ValidationError("User must be authenticated.")
+        if self.object.freeze:
+            raise ValidationError("This object cannot be edited.")
+        if not self.object.case_study.user == self.request.user:
+            raise PermissionDenied("This object doesn't belong to the authenticated")
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url() + str(self.object.case_study.id))
  
     def get(self, request, *args, **kwargs):
         postprocessing = get_object_or_404(Postprocessing, id=kwargs["postprocessing_id"])
@@ -382,7 +431,7 @@ class PostprocessingDetailView(LoginRequiredMixin, DetailView):
         elif postprocessing.case_study.user != request.user:
             raise PermissionDenied("Postprocessing doesn't belong to the authenticated user.")
 
-        form = PostprocessingForm(read_only=True, instance=postprocessing)
+        form = PostprocessingForm(read_only=postprocessing.freeze, instance=postprocessing)
         if 'case_study_id' in kwargs:
             case_study = get_object_or_404(CaseStudy, id=kwargs['case_study_id'])
             if 'Postprocessing' in case_study.available_phases:
@@ -647,6 +696,7 @@ class UIElementsDetectionDetailView(LoginRequiredMixin, MultiFormsView):
 
             },
             "instance": ui_elements_detection,
+            "read_only": ui_elements_detection.freeze
         }
 
     def get_ui_elements_classification_initial(self):
@@ -661,6 +711,7 @@ class UIElementsDetectionDetailView(LoginRequiredMixin, MultiFormsView):
                 "model": ui_elements_classification.model,
             },
             "instance": ui_elements_classification,
+            "read_only": ui_elements_classification.freeze
         }
     
     def forms_valid(self, forms):
@@ -847,18 +898,34 @@ class PrefiltersListView(LoginRequiredMixin, ListView):
         return queryset
 
     
-class PrefiltersDetailView(LoginRequiredMixin, DetailView):
+class PrefiltersDetailView(LoginRequiredMixin, UpdateView):
     login_url = "/login/"
+    model = Prefilters
+    form_class = PrefiltersForm
+    success_url = "/fe/prefiltering/list/"
     # Check if the the phase can be interacted with (included in case study available phases)
     
+    def get_object(self, queryset: None = ...) -> Model:
+        return get_object_or_404(Prefilters, id=self.kwargs["prefilter_id"])
+
+    def form_valid(self, form):
+        if not self.request.user.is_authenticated:
+            raise ValidationError("User must be authenticated.")
+        if self.object.freeze:
+            raise ValidationError("This object cannot be edited.")
+        if not self.object.case_study.user == self.request.user:
+            raise PermissionDenied("This object doesn't belong to the authenticated")
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url() + str(self.object.case_study.id))
+
     def get(self, request, *args, **kwargs):
         prefilter_id=kwargs.get("prefilter_id")
         prefilter = get_object_or_404(Prefilters, id=prefilter_id)
-        form = PrefiltersForm(read_only=True, instance=prefilter)
+
         if prefilter.case_study.user != request.user:
             raise PermissionDenied("Prefilter doesn't belong to the authenticated user.")
 
-        form = PrefiltersForm(read_only=True, instance=prefilter)
+        form = PrefiltersForm(read_only=prefilter.freeze, instance=prefilter)
         if 'case_study_id' in kwargs:
             case_study = get_object_or_404(CaseStudy, id=kwargs['case_study_id'])
             if 'Prefilters' in case_study.available_phases:
@@ -1009,13 +1076,30 @@ class PostfiltersListView(LoginRequiredMixin, ListView):
 
         return queryset
     
-class PostfiltersDetailView(LoginRequiredMixin, DetailView):
+class PostfiltersDetailView(LoginRequiredMixin, UpdateView):
     login_url = "/login/"
+    model = Postfilters
+    form_class = PostfiltersForm
+    success_url = "/fe/postfiltering/list/"
+
+    def get_object(self, queryset = ...):
+        return get_object_or_404(Postfilters, id=self.kwargs["postfilter_id"])
+
+    def form_valid(self, form):
+        if not self.request.user.is_authenticated:
+            raise ValidationError("User must be authenticated.")
+        if self.object.freeze:
+            raise ValidationError("This object cannot be edited.")
+        if not self.object.case_study.user == self.request.user:
+            raise PermissionDenied("This object doesn't belong to the authenticated")
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url() + str(self.object.case_study.id))
+
     # Check if the the phase can be interacted with (included in case study available phases)
     def get(self, request, *args, **kwargs):
         postfilter_id = kwargs.get('postfilter_id')
         postfilter = get_object_or_404(Postfilters, id=postfilter_id) 
-        form = PostfiltersForm(read_only=True, instance=postfilter)
+        form = PostfiltersForm(read_only=postfilter.freeze, instance=postfilter)
         if not postfilter:
             return HttpResponse(status=404, content="Postfilters not found.")
         elif postfilter.case_study.user != request.user:
@@ -1084,6 +1168,8 @@ def set_as_postfilters_inactive(request):
 @login_required(login_url="/login/")
 def delete_postfilter(request):
     postfilter_id = request.GET.get("postfilter_id")
+    case_study_id = request.GET.get("case_study_id")
+    postfilter = get_object_or_404(Postfilters, id=postfilter_id)
     # Validations
     if not request.user.is_authenticated:
         raise ValidationError(_("User must be authenticated."))
@@ -1093,8 +1179,6 @@ def delete_postfilter(request):
         raise ValidationError(_("Postfiltering doesn't belong to the authenticated user."))
     if Postfilters.objects.get(pk=postfilter_id).case_study != CaseStudy.objects.get(pk=case_study_id):
         raise ValidationError(_("Postfiltering doesn't belong to the Case Study."))   
-    case_study_id = request.GET.get("case_study_id")
-    postfilter = Postfilters.objects.get(id=postfilter_id)
     if request.user.id != postfilter.user.id:
         raise Exception("This object doesn't belong to the authenticated user")
     postfilter.delete()
@@ -1183,8 +1267,6 @@ class UIElementsDetectionResultDetailView(LoginRequiredMixin, DetailView):
         soms["soms"] = []
 
         for compo_json in os.listdir(os.path.join(execution.exp_folder_complete_path, scenario + "_results", "components_json")):
-            with open(os.path.join(execution.exp_folder_complete_path, scenario + "_results", "components_json", compo_json), "r") as f:
-                compos = json.load(f)
             # path is something like: asdsa/.../.../image.PNG.json
             img_name = compo_json.split("/")[-1].split(".json")[0]
             img_path = os.path.join(execution.case_study.exp_foldername, scenario, img_name)
@@ -1192,16 +1274,106 @@ class UIElementsDetectionResultDetailView(LoginRequiredMixin, DetailView):
             soms["soms"].append(
                 {
                     "img": img_name,
-                    "img_path": img_path,
-                    "som": compos
+                    "img_path": img_path
                 }
             )
 
         context = {
             "execution_id": execution.id,
             "scenarios": execution.scenarios_to_study,
+            "scenario": scenario,
             "soms": soms
         }
 
         #return HttpResponse(json.dumps(context), content_type="application/json")
         return render(request, "ui_elements_detection/results.html", context)
+
+class UIElementsDetectionResultsGetImgSom(LoginRequiredMixin, View):
+    login_url = "/login/"
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        execution: Execution = get_object_or_404(Execution, id=kwargs["execution_id"])     
+        if user.id != execution.user.id:
+            raise PermissionDenied("Execution doesn't belong to the authenticated user.")
+        scenario: str = request.GET.get('scenario')
+        img_name: str = request.GET.get('img_name')
+
+        if scenario == None:
+            scenario = execution.scenarios_to_study[0] # Select the first scenario by default
+        img_path = os.path.join(execution.exp_folder_complete_path, scenario + "_results", "components_json", img_name + ".json")
+        with open(img_path, 'r') as f:
+            data = json.load(f)
+
+        return HttpResponse(json.dumps(data), content_type="application/json")
+
+
+class PrefilteringResultDetailView(LoginRequiredMixin, DetailView):
+    login_url = "/login/"
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        execution: Execution = get_object_or_404(Execution, id=kwargs["execution_id"])     
+        if user.id != execution.user.id:
+            raise PermissionDenied("Execution doesn't belong to the authenticated user.")
+        scenario: str = request.GET.get('scenario')
+
+        if scenario == None:
+            scenario = execution.scenarios_to_study[0] # Select the first scenario by default
+
+        img_list = []
+        for img in os.listdir(os.path.join(execution.exp_folder_complete_path, scenario + "_results", "prefiltered_img")):
+            # path is something like: asdsa/.../.../image.PNG.json
+            img_path = os.path.join(execution.case_study.exp_foldername, "executions", execution.exp_foldername, scenario + "_results", "prefiltered_img", img)
+
+            img_list.append(
+                {
+                    "img": img,
+                    "img_path": img_path
+                }
+            )
+
+        context = {
+            "execution_id": execution.id,
+            "scenarios": execution.scenarios_to_study,
+            "scenario": scenario,
+            "img_list": img_list
+        }
+
+        #return HttpResponse(json.dumps(context), content_type="application/json")
+        return render(request, "prefiltering/results.html", context)
+
+class PostfilteringResultDetailView(LoginRequiredMixin, DetailView):
+    login_url = "/login/"
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        execution: Execution = get_object_or_404(Execution, id=kwargs["execution_id"])     
+        if user.id != execution.user.id:
+            raise PermissionDenied("Execution doesn't belong to the authenticated user.")
+        scenario: str = request.GET.get('scenario')
+
+        if scenario == None:
+            scenario = execution.scenarios_to_study[0] # Select the first scenario by default
+
+        img_list = []
+        for img in os.listdir(os.path.join(execution.exp_folder_complete_path, scenario + "_results", "postfilter_attention_maps")):
+            # path is something like: asdsa/.../.../image.PNG.json
+            img_path = os.path.join(execution.case_study.exp_foldername, "executions", execution.exp_foldername, scenario + "_results", "postfilter_attention_maps", img)
+
+            img_list.append(
+                {
+                    "img": img,
+                    "img_path": img_path
+                }
+            )
+
+        context = {
+            "execution_id": execution.id,
+            "scenarios": execution.scenarios_to_study,
+            "scenario": scenario,
+            "img_list": img_list
+        }
+
+        #return HttpResponse(json.dumps(context), content_type="application/json")
+        return render(request, "postfiltering/results.html", context)

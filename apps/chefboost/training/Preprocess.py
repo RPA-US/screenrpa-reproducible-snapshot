@@ -35,7 +35,7 @@ def processContinuousFeatures(algorithm, df, column_name, entropy, config):
 	
 	if len(unique_values) == 1:
 		winner_threshold = unique_values[0]
-		df[column_name] = np.where(df[column_name] <= winner_threshold, "<="+str(winner_threshold), ">"+str(winner_threshold))
+		df[column_name] = np.where(df[column_name] <= winner_threshold, " <= "+str(winner_threshold), " > "+str(winner_threshold))
 		return df
 	
 	for i in range(0, len(unique_values)-1):
@@ -127,6 +127,6 @@ def processContinuousFeatures(algorithm, df, column_name, entropy, config):
 	#print(column_name,": ", winner_threshold," in ", unique_values)
 	
 	#print("theshold is ",winner_threshold," for ",column_name)
-	df[column_name] = np.where(df[column_name] <= winner_threshold, "<="+str(winner_threshold), ">"+str(winner_threshold))
+	df[column_name] = np.where(df[column_name] <= winner_threshold, " <= "+str(winner_threshold), " > "+str(winner_threshold))
 	
 	return df

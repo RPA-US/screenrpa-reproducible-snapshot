@@ -17,7 +17,7 @@
 
     <style>
         body{
-            background-image: url('/static/assets/img/theme/test.jpeg');
+            background-image: url('/static/assets/img/theme/test.jpg');
             background-size: cover;  /* o puedes usar 'contain' */
 
         }
@@ -45,11 +45,21 @@
         <button class="btn btn-primary">Start</button>
     </div>
 
+    
+    <!-- Elementos para mostrar las coordenadas -->
+    <div id="coordinates" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color:red">
+        <p>X: <span id="coordX">0</span></p>
+        <p>Y: <span id="coordY">0</span></p>
+    </div>
+
     <script>
         // this array will store all the eye movements
         var gaze_points = [];
         var gaze_properties = {};
         let isFirstExecution = true;
+        var ScreenX = screen.width;
+        var ScreenY = 737.60 //No coge correctamente la ScreenY de webgazer en modo ventana
+
 
         // start recording
         function recordGaze() {
@@ -75,8 +85,12 @@
                 var save_url = "http://127.0.0.1:8000/"+"?x="+coordX+";y="+coordY;
                 // var temp_image = new Image();
 
+                // Actualizar las coordenadas en el HTML
+                document.getElementById('coordX').textContent = coordX;
+                document.getElementById('coordY').textContent = coordY;
+                
                 // temp_image.src= save_url;
-                gaze_points.push([coordX, coordY, timestamp,UTCdate]);
+                gaze_points.push([coordX, coordY, timestamp,UTCdate,ScreenX,ScreenY]);
 
             }).begin();
         }
@@ -99,7 +113,7 @@
             //Crear zip con .csv y .json
             const zip = new JSZip();
             //Crear csv
-            var csv = 'Gaze X,Gaze Y,Timestamp,UTCdate\n';
+            var csv = 'Gaze_X,Gaze_Y,Timestamp,UTCdate,Screen_X,Screen_Y\n';
             gaze_points.forEach(function (row) {
                 csv += row.join(',');
                 csv += "\n";
@@ -116,7 +130,7 @@
             const jsonString = JSON.stringify(gaze_properties);
 
             //Guardar archivos en zip
-            zip.file("webgazer_gazeData.csv", csv);
+            zip.file("webgazer_gazedata.csv", csv);
             zip.file("webgazer_properties.json", jsonString);
 
             //Descargar zip

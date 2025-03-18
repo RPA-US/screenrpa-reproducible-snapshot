@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-Copyright (c) RPA-US
+Copyright (c) CENIT-ES3
 """
 
 from django import forms
@@ -18,7 +18,6 @@ class MonitoringForm(forms .ModelForm):
             "title",
             "type",
             "ui_log_filename",
-            "ui_log_separator",
             "gaze_log_filename",
             "gaze_log_adjustment",
             "native_slide_events",
@@ -32,7 +31,6 @@ class MonitoringForm(forms .ModelForm):
         labels = {
             "type": _("Type"),
             "ui_log_filename": _("UI Log Filename"),
-            "ui_log_separator": _("UI Log Separator"),
             "gaze_log_filename": _("Gaze Log Filename"),
             "gaze_log_adjustment": _("Gaze Log Adjustment"),
             "native_slide_events": _("System Info. Log"),
@@ -46,7 +44,7 @@ class MonitoringForm(forms .ModelForm):
         widgets = {
             # Type is a choice field
             "type": forms.Select(
-                choices=[('imotions', 'iMotions Infrarred Eye tracker'), ('webgazer', 'Webgazer.js Eye tracking software')],
+                choices=[('tobii', 'Tobii Spark Pro Eye tracking software'), ('webgazer', 'Webgazer.js Eye tracking software'),('imotions', 'iMotions Infrared Eye tracker')],
                 attrs={
                     "class": "form-control",
                     "required": "false"
@@ -54,7 +52,6 @@ class MonitoringForm(forms .ModelForm):
             ),
             "title": forms.TextInput(attrs={"class": "form-control"}),
             "ui_log_filename": forms.TextInput(attrs={"class": "form-control"}),
-            "ui_log_separator": forms.TextInput(attrs={"class": "form-control"}),
             "gaze_log_filename": forms.TextInput(attrs={"class": "form-control"}),
             # Gaze log adj. is a float number
             "gaze_log_adjustment": forms.NumberInput(attrs={"class": "form-control"}),

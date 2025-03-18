@@ -12,7 +12,7 @@ import json
 from scipy.cluster.hierarchy import dendrogram, linkage
 # from sklearn.cluster import AgglomerativeClustering
 from django.http import HttpResponse, HttpResponseRedirect
-from django.views.generic import ListView, CreateView, DetailView
+from django.views.generic import ListView, CreateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -237,7 +237,6 @@ def scene_level(log_path, scenario_path, execution):
     process_discovery = execution.process_discovery
     model_type = process_discovery.model_type
     clustering_type = process_discovery.clustering_type
-    labeling = process_discovery.labeling
     image_weight = process_discovery.image_weight if model_type == 'clip' else 0.5
     text_weight = process_discovery.text_weight if model_type == 'clip' else 0.5
     use_pca = process_discovery.use_pca
@@ -256,7 +255,7 @@ def scene_level(log_path, scenario_path, execution):
         fe_log = None
     ui_log = extract_features_from_images(ui_log, scenario_path, special_colnames["Screenshot"], text_column, image_weight=image_weight, text_weight=text_weight, model_type=model_type)
     ui_log = cluster_images(ui_log, use_pca, clustering_type, n_components)
-    ui_log, fe_log = trace_id_assignment(ui_log, fe_log, remove_loops, labeling_mode=labeling)
+    ui_log, fe_log = trace_id_assignment(ui_log, fe_log, remove_loops)
 
     folder_path = scenario_path + '_results'
     print(folder_path)
@@ -394,7 +393,7 @@ def process_level(folder_path, df, fe_log, execution):
                 df[dp.id] = None
 
             for index, row in df.iterrows():
-                if row[special_colnames['Case']] != current_trace_id:
+                if str(row[special_colnames['Case']]) != str(current_trace_id):
                     # Insert the branches taken in the previous trace
                     current_trace_rows = df.loc[df[special_colnames['Case']] == current_trace_id]
                     for index, trace_row in current_trace_rows.iterrows():
@@ -406,12 +405,12 @@ def process_level(folder_path, df, fe_log, execution):
 
                 act_label = row[special_colnames['Activity']]
                 if current_dp is not None:
-                    if any(branch.label == act_label for branch in branches):
+                    if any(str(branch.label) == str(act_label) for branch in branches):
                         # Compute the value for the row on column dp_id
-                        branch_label = (list(filter(lambda branch: branch.label == act_label, branches))[0].label)
+                        branch_label = (list(filter(lambda branch: str(branch.label) == str(act_label), branches))[0].label)
                         current_branches[current_dp] = branch_label
                 for dp in dps:
-                    if dp.prevAct == act_label:
+                    if str(dp.prevAct) == str(act_label):
                         current_dp = dp.id
 
                 # Register trace of the last Case or trace_id
@@ -555,15 +554,32 @@ class ProcessDiscoveryListView(LoginRequiredMixin, ListView):
         return queryset
     
 
-class ProcessDiscoveryDetailView(LoginRequiredMixin, DetailView):
+class ProcessDiscoveryDetailView(LoginRequiredMixin, UpdateView):
     login_url = '/login/'
-    # Check if the the phase can be interacted with (included in case study available phases)
+    model = ProcessDiscovery
+    form_class = ProcessDiscoveryForm
+    template_name = "processdiscovery/detail.html"
+    success_url = "/pd/bpmn/list/"
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(ProcessDiscovery, id=self.kwargs.get('process_discovery_id'))
+    
+    def form_valid(self, form):
+        if not self.request.user.is_authenticated:
+            raise ValidationError("User must be authenticated.")
+        if self.object.freeze:
+            raise ValidationError("This object cannot be edited.")
+        if not self.object.case_study.user == self.request.user:
+            raise PermissionDenied("This object doesn't belong to the authenticated")
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url() + str(self.object.case_study.id))
+
     def get(self, request, *args, **kwargs):
         process_discovery = get_object_or_404(ProcessDiscovery, id=kwargs["process_discovery_id"])
         if process_discovery.case_study.user != request.user:
             raise PermissionDenied("Process Discovery doesn't belong to the authenticated user.")
 
-        process_discovery_form = ProcessDiscoveryForm(read_only=True, instance=process_discovery)
+        process_discovery_form = ProcessDiscoveryForm(read_only=process_discovery.freeze, instance=process_discovery)
 
         if 'case_study_id' in kwargs:
             case_study = get_object_or_404(CaseStudy, id=kwargs['case_study_id'])
@@ -571,6 +587,7 @@ class ProcessDiscoveryDetailView(LoginRequiredMixin, DetailView):
                 context= {"process_discovery": process_discovery, 
                             "case_study_id": case_study.id,
                             "form": process_discovery_form,}
+                return render(request, "processdiscovery/detail.html", context)
             else:
                 return HttpResponseRedirect(reverse("analyzer:casestudy_list"))
 

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto Rojo en el Centro</title>
+    <style>
+        /* Estilos para el cuerpo */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        /* Estilos para el punto rojo */
+        .punto-rojo {
+            width: 30px; /* Tamaño del punto */
+            height: 30px;
+            background-color: blue;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <!-- Elemento del punto rojo -->
+    <div class="punto-rojo"></div>
+</body>
+</html>

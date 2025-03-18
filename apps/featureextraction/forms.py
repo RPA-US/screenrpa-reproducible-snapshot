@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-Copyright (c) RPA-US
+Copyright (c) CENIT-ES3
 """
 
 import json
@@ -80,8 +80,12 @@ class UIElementsDetectionForm(forms .ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        self.read_only = kwargs.pop('read_only', False)
         super(UIElementsDetectionForm, self).__init__(*args, **kwargs)
         self.fields['configurations'].initial = dict()
+        if self.read_only:
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
 
 class PrefiltersForm(forms .ModelForm):
     class Meta:
@@ -92,18 +96,18 @@ class PrefiltersForm(forms .ModelForm):
             )
         fields = (
             "title",
-            "scale_factor",
+            # "scale_factor",
             "preloaded_file",
             "preloaded",
         )
         labels = {
             "preloaded_file":_("Preload Execution Results"),
-            "scale_factor": _("Dispersion Scale Factor")
+            # "scale_factor": _("Dispersion Scale Factor")
         }
 
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
-            "scale_factor": forms.NumberInput(attrs={'type': 'range', 'min': 1, 'max': 10, 'step': 1}),
+            # "scale_factor": forms.NumberInput(attrs={'type': 'range', 'min': 1, 'max': 10, 'step': 1}),
             "preloaded_file": forms.FileInput(
                 attrs={
                     'accept': '.zip'
@@ -121,10 +125,10 @@ class PrefiltersForm(forms .ModelForm):
             for field_name in self.fields:
                 self.fields[field_name].disabled = True
                 
-        if self.data.get('preloaded') == 'on':
-            self.fields['scale_factor'].required = False
-        else:
-            self.fields['scale_factor'].required = True
+        # if self.data.get('preloaded') == 'on':
+        #     self.fields['scale_factor'].required = False
+        # else:
+        #     self.fields['scale_factor'].required = True
 
 class PostfiltersForm(forms .ModelForm):
     class Meta:
@@ -135,7 +139,7 @@ class PostfiltersForm(forms .ModelForm):
             )
         fields = (
             "title",
-            "scale_factor",
+            # "scale_factor",
             # "intersection_area_thresh",
             "consider_nested_as_relevant",
             "preloaded_file",
@@ -143,14 +147,14 @@ class PostfiltersForm(forms .ModelForm):
         )
         labels = {
             "preloaded_file":"Preload Execution Results",
-            "scale_factor": _("Dispersion Scale Factor"),
+            # "scale_factor": _("Dispersion Scale Factor"),
             # "intersection_area_thresh": "Intersection Area Threshold",
             "consider_nested_as_relevant": _("Consider Nested Components as Relevant")
         }
 
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control"}),
-            "scale_factor": forms.NumberInput(attrs={'type': 'range', 'min': 1, 'max': 10, 'step': 1}),
+            # "scale_factor": forms.NumberInput(attrs={'type': 'range', 'min': 1, 'max': 10, 'step': 1}),
             # "intersection_area_thresh": forms.NumberInput(attrs={"class": "form-control"}),
             "consider_nested_as_relevant": forms.CheckboxInput(attrs={"class": "primary-checkbox"}),
             "preloaded_file": forms.FileInput(attrs={'accept': '.zip'}),
@@ -164,10 +168,10 @@ class PostfiltersForm(forms .ModelForm):
             for field_name in self.fields:
                 self.fields[field_name].disabled = True
         
-        if self.data.get('preloaded') == 'on':
-            self.fields['scale_factor'].required = False
-        else:
-            self.fields['scale_factor'].required = True
+        # if self.data.get('preloaded') == 'on':
+        #     self.fields['scale_factor'].required = False
+        # else:
+        #     self.fields['scale_factor'].required = True
 
 
 
@@ -213,7 +217,11 @@ class UIElementsClassificationForm(forms .ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.read_only = kwargs.pop('read_only', False)
         super(UIElementsClassificationForm, self).__init__(*args, **kwargs)
+        if self.read_only:
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
   
 class FeatureExtractionTechniqueForm(forms.ModelForm):
     class Meta:

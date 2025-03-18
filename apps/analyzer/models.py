@@ -79,8 +79,8 @@ class CaseStudy(models.Model):
     executed = models.IntegerField(default=0, editable=True)
     active = models.BooleanField(default=True, editable=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    exp_file = PrivateFileField("File", null=True)
-    exp_foldername = models.CharField(max_length=255, null=True, blank=True)
+    exp_file = PrivateFileField("File", null=True, editable=True)
+    exp_foldername = models.CharField(max_length=255, null=True, blank=True, editable=True)
     exp_folder_complete_path = models.CharField(max_length=255)
     scenarios_to_study = ArrayField(models.CharField(max_length=100), null=True, blank=True) # example: sc_0_size50_Balanced,sc_0_size50_Imbalanced,sc_0_size75_Balanced,sc_0_size75_Imbalanced,sc_0_size100_Balanced,sc_0_size100_Imbalanced,sc_0_size300_Balanced,sc_0_size300_Imbalanced,sc_0_size500_Balanced,sc_0_size500_Imbalanced
     special_colnames = JSONField(default=default_special_colnames)
@@ -100,17 +100,17 @@ class CaseStudy(models.Model):
         # If there exists a log.csv in the unzipped folder or there exists a monitoring configutation, phases can be configured
         exists_log_csvs_paths = [os.path.exists(os.path.join(self.exp_folder_complete_path, scenario, 'log.csv')) for scenario in self.scenarios_to_study]
         if all(exists_log_csvs_paths) or Monitoring.objects.filter(case_study=self, active=True).exists():
-            if not Postfilters.objects.filter(case_study=self, active=True).exists():
+            if not Postfilters.objects.filter(case_study=self, active=True).exists() and Monitoring.objects.filter(case_study=self, active=True).exists():
                 available_phases.append('Prefilters')
             available_phases.append('UIElementsDetection')
             if UIElementsDetection.objects.filter(case_study=self, active=True).exists():
                 available_phases.append("FeatureExtractionTechnique")
-                if not Prefilters.objects.filter(case_study=self, active=True).exists():
+                if not Prefilters.objects.filter(case_study=self, active=True).exists() and Monitoring.objects.filter(case_study=self, active=True).exists():
                     available_phases.append('Postfilters')
+            available_phases.append("ProcessDiscovery")
             if FeatureExtractionTechnique.objects.filter(case_study=self, active=True).exists() and ProcessDiscovery.objects.filter(case_study=self, active=True).exists():
                 available_phases.append('Postprocessing')
-            available_phases.append("ProcessDiscovery")
-            available_phases.append('ExtractTrainingDataset')
+                available_phases.append('ExtractTrainingDataset')
             if ExtractTrainingDataset.objects.filter(case_study=self, active=True).exists():
                 available_phases.append("DecisionTreeTraining")
 
@@ -262,14 +262,17 @@ class Execution(models.Model):
                       self.ui_elements_classification, self.postfilters, 
                       self.process_discovery, self.extract_training_dataset, self.decision_tree_training]:
             if stage:
+                stage.executed += 1
                 stage.freeze = True
                 stage.save()
                 
         for stage in self.feature_extraction_techniques.all():
+            stage.executed += 1
             stage.freeze = True
             stage.save()
         
         for stage in self.postprocessings.all():
+            stage.executed += 1
             stage.freeze = True
             stage.save()
 
@@ -291,6 +294,12 @@ class Execution(models.Model):
                 unzip_file(preloaded_file_path, self.exp_folder_complete_path)
                 print("Preloaded file unzipped!:", self.exp_folder_complete_path)
 
+        for pp in self.postprocessings.all():
+            if hasattr(pp, "preloaded") and pp.preloaded:
+                preloaded_file_path = os.path.join(PRIVATE_STORAGE_ROOT, pp.preloaded_file.name)
+                unzip_file(preloaded_file_path, self.exp_folder_complete_path)
+                print("Preloaded file unzipped!:", self.exp_folder_complete_path)
+
     def create_folder_structure(self):
         self.exp_foldername = f"exec_{self.id}"
         self.exp_folder_complete_path = os.path.join(self.case_study.exp_folder_complete_path, 'executions', self.exp_foldername)
@@ -300,7 +309,7 @@ class Execution(models.Model):
 
         # Create a symbolic link to the case study scenarios to study inside the execution folder
         for scenario in self.scenarios_to_study:
-            source = os.path.join('../../', scenario)
+            source = os.path.join('..', '..', scenario)
             destination = os.path.join(self.exp_folder_complete_path, scenario)
             if os.name == 'nt':
                 command = f'cmd /c mklink /D "{destination}" "{source}"'
